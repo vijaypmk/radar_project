@@ -50,7 +50,7 @@ function [propSpeed, fc, pulseBw, prf, fs, txGain, peakPower, ...
     pd = 0.9;            % Probability of detection
     pfa = 1e-6;          % Probability of false alarm
     tgtRcs = 0.25;         % Required target radar cross section old - 1
-    numPulseInt = 1;  % Integrate 10 pulses at a time
+    numPulseInt = 11;  % Integrate 10 pulses at a time
 
 
     % Waveform parameters
@@ -85,8 +85,8 @@ function [propSpeed, fc, pulseBw, prf, fs, txGain, peakPower, ...
     referenceLoss = 2*fspl(maxRange,lambda);
 
     %Radar parameters
-    target1Rcs = 0.6;
-    target1Pos = [2.66;4.5;0];  % old 1988.66
+    target1Rcs = [0.3 0.4];
+    target1Pos = [0;10;0];  % old 1988.66
     target1Vel = [ 0; 0; 0 ];
 
 end
