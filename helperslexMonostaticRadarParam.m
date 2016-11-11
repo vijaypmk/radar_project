@@ -3,6 +3,7 @@ function helperslexMonostaticRadarParam
 % It may be removed in a future release.
 
 %   Copyright 2014 The MathWorks, Inc.
+    clear
 
     [propSpeed, fc, pulseBw, prf, fs, txGain, peakPower, ...
      matchingCoeff, metersPerSample, rangeOffset, rangeLoss, ...
@@ -45,11 +46,11 @@ function [propSpeed, fc, pulseBw, prf, fs, txGain, peakPower, ...
 
     % Constraints
     maxRange = 50;    % Maximum unambiguous range old - 5000
-    rangeRes = 5;      % Required range resolution old - 50
+    rangeRes = 0.5;      % Required range resolution old - 50
     pd = 0.9;            % Probability of detection
     pfa = 1e-6;          % Probability of false alarm
-    tgtRcs = 1;         % Required target radar cross section
-    numPulseInt = 10;  % Integrate 10 pulses at a time
+    tgtRcs = 0.25;         % Required target radar cross section old - 1
+    numPulseInt = 11;  % Integrate 10 pulses at a time
 
 
     % Waveform parameters
@@ -60,7 +61,7 @@ function [propSpeed, fc, pulseBw, prf, fs, txGain, peakPower, ...
 
     % Transmitter parameters
     snrMin = albersheim(pd, pfa, numPulseInt);
-    txGain = 20;
+    txGain = 20;  % old 20
     peakPower =  ...
         radareqpow(lambda,maxRange,snrMin,pulseWidth,...
                    'RCS',tgtRcs,'Gain',txGain);
@@ -84,8 +85,8 @@ function [propSpeed, fc, pulseBw, prf, fs, txGain, peakPower, ...
     referenceLoss = 2*fspl(maxRange,lambda);
 
     %Radar parameters
-    target1Rcs = 0.6;
-    target1Pos = [1988.66;0;0];
+    target1Rcs = [0.3 0.4];
+    target1Pos = [0;10;0];  % old 1988.66
     target1Vel = [ 0; 0; 0 ];
 
 end
