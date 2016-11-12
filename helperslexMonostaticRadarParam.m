@@ -86,15 +86,17 @@ function [propSpeed, fc, pulseBw, prf, fs, txGain, peakPower, ...
     referenceLoss = 2*fspl(maxRange,lambda);
 
     %Radar parameters
-    target1Rcs = [0.3 0.4 0.5 0.66];
+    target1Rcs = [0.3 0.4 0.5 0.66 0.5];
+%      target1Rcs = [0.5];
 %     target1Pos = [[10;0;0],[0;0;0],[0;0;0]];  % old 1988.66
 %     target1Vel = [[0;0;0], [0;0;0],[0;0;0]];
 %     target1Pos = [2.5;0;0];
 %     target1Vel = [0;0;0];
-    target1Pos = [1.98 3.53 4.5 10.45;...
-                                    0 0 0 0 ; ...
-                                    0 0 0 0 ];
-    target1Vel = zeros(3,4);
+    target1Pos = [1.98 3.53 4.5 10.45 6.1;...
+                                    0 0 0 0 0; ...
+                                    0 0 0 0 0];
+    target1Vel = zeros(3,5);
+
 
 %     target1Rcs = [0.6 2.2 1.05 .5];
 %     target1Pos = [1988.66 3532.630 3845.04 1045.04;...
