@@ -1,3 +1,5 @@
+clear
+
 pd = 0.9;            % Probability of detection
 pfa = 1e-6;          % Probability of false alarm
 max_range = 150;    % Maximum unambiguous range
@@ -65,10 +67,13 @@ transmitter = phased.Transmitter(...
 antenna_t = phased.IsotropicAntennaElement(...
     'FrequencyRange',[5e9 40e9]);
 
-antenna = phased.ULA('Element',antenna_t,'NumElements',10,...
+% antenna = phased.ULA('Element',antenna_t,'NumElements',10,...
+%     'ElementSpacing',lambda/2);
+% antenna.Element.FrequencyRange = [5e9 40e9];
+
+antenna = phased.ULA('NumElements',10,...
     'ElementSpacing',lambda/2);
 antenna.Element.FrequencyRange = [5e9 40e9];
-
 
 sensorpos = [0; 0; 0];
 sensorvel = [0; 0; 0];
@@ -85,12 +90,14 @@ collector = phased.Collector(...
     'OperatingFrequency',fc);
 
 % tgtpos = [[2024.66;0;0],[3518.63;0;0],[3845.04;0;0]];
-tgtpos = [[2.024;0;2],[3.5;0;1],[4.3;0;1.5],[10.75;0;0]];
-tgtvel = [[0;0;0],[0;0;0],[0;0;0],[0;0;0]];
+tgtpos = [[2.024;1.5;0],[3.5;0;0],[4.5;2;0],[7.5;2;0],[1;1;0]];
+tgtvel = [[30;0;0],[20;0;0],[-10;0;0],[0;0;0],[0;0;0]];
+% tgtpos = [[2;7;0],[1;1;0],[0.5;1;0]];;
+% tgtvel = [[0;0;0],[0;0;0],[0;0;0]];
 tgtmotion = phased.Platform('InitialPosition',tgtpos,'Velocity',tgtvel);
 
-% tgtrcs = [1.6 2.2 1.05];
-tgtrcs = [0.6 0.2 0.1 0.8];
+tgtrcs = [0.6 0.2 0.4 0.2 0.2];
+% tgtrcs = [0.6 0.4 0.5];
 target = phased.RadarTarget('MeanRCS',tgtrcs,'OperatingFrequency',fc);
 
 channel = phased.FreeSpace(...
@@ -113,6 +120,7 @@ rng default
 npower = 0.01;
 
 % figure;
+% tgtpos = sort(tgtpos);
 for m = 1:num_pulse_int
 
     % Update sensor and target positions
@@ -121,6 +129,10 @@ for m = 1:num_pulse_int
 
     % Calculate the target angles as seen by the sensor
     [tgtrng,tgtang] = rangeangle(tgtpos,sensorpos);
+    
+    % sorting
+    [tgtrng, sortindex] = sort(tgtrng);
+    tgtang(1,:) = tgtang(1,sortindex);
 
     % Simulate propagation of pulse in direction of targets
     pulse = step(waveform);
@@ -136,15 +148,16 @@ for m = 1:num_pulse_int
     rxsig = step(collector,tgtsig,tgtang);
 %     rxasig = sensorsig(getElementPosition(antenna)/lambda,...
 %     Nsnapshots,tgtang,npower);
-%     rxasig = collectPlaneWave(antenna, tgtsig, tgtang);
+%     rxasig = collectPlaneWave(antenna, rxsig(:,1), tgtang, fc);
 %     rxisig = pulsint(rxsig,'noncoherent');
     rxisig = sum(rxsig')';
+%     rxasig = collectPlaneWave(antenna, rxisig, tgtang, fc);
     rxpulses(:,m) = step(receiver,rxisig,~(txstatus>0));
 end
 
-rxasig = sensorsig(getElementPosition(antenna)/lambda,...
-    Nsnapshots,tgtang,npower);
-rxasig = collectPlaneWave(antenna, rxasig, tgtang);
+% rxasig = sensorsig(getElementPosition(antenna)/lambda,...
+%     Nsnapshots,tgtang,npower);
+% rxasig = collectPlaneWave(antenna, rxasig, tgtang);
     
 oldrxpulses = rxpulses;
 
@@ -182,11 +195,11 @@ helperRadarPulsePlot(rxpulses,threshold,...
 
 range_gates = prop_speed*fast_time_grid/2;
 
-tvg = phased.TimeVaryingGain(...
-    'RangeLoss',2*fspl(range_gates,lambda),...
-    'ReferenceLoss',2*fspl(max_range,lambda));
-
-rxpulses = step(tvg, rxpulses);
+% tvg = phased.TimeVaryingGain(...
+%     'RangeLoss',2*fspl(range_gates,lambda),...
+%     'ReferenceLoss',2*fspl(max_range,lambda));
+% 
+% rxpulses = step(tvg, rxpulses);
 
 figure;
 helperRadarPulsePlot(rxpulses,threshold,...
@@ -203,8 +216,10 @@ helperRadarPulsePlot(rxpulses,threshold,...
 [~,range_detect] = findpeaks(abs(rxpulses),'MinPeakHeight',sqrt(threshold));
 
 true_range = tgtrng
-range_estimates = range_gates(range_detect)
+range_estimates = range_gates(range_detect);
 
+
+% delay = (range_detect-length(pulse))/(fs);
 % [rpeaks,rlocs]=pkpicker( abs(rxpulses(:,1)), threshold, 30);
 
 vd = vxpulses(range_detect,:);         % use only rows where the peaks are located
@@ -245,20 +260,55 @@ tgtang
 
 estimator = phased.BeamscanEstimator('SensorArray',antenna,...
     'OperatingFrequency',fc,'ScanAngles',-90:90,...
-    'DOAOutputPort',true,'NumSignals',4);
-[y,sigang] = step(estimator,(rxasig));
+    'DOAOutputPort',true,'NumSignals',length(tgtrcs));
+[y,sigang] = step(estimator,(rxsig));
 sigang
+figure;
 plotSpectrum(estimator)
 
 MUSICestimator = phased.RootMUSICEstimator('SensorArray',antenna,...
     'OperatingFrequency',fc,'NumSignalsSource','Property',...
-    'NumSignals',4,'ForwardBackwardAveraging',true);
-doa_est = step(MUSICestimator,(rxasig))
+    'NumSignals',length(tgtrcs),'ForwardBackwardAveraging',true);
+doa_est = step(MUSICestimator,(rxsig));
+
+doa_est = sort(doa_est)
+
+[tgtang(1,:), sortaindex] = sort(tgtang(1,:));
+tgtang(1,:)
+range_estimates = range_estimates(sortaindex)
+
 
 % xy graph
-tan_azangles = tan(doa_est);
-calcu = tan_azangles.^2 + 1;
-calcu = real(sqrt(calcu - range_estimates))
+tan_azangles = tand(doa_est);
+x_axis = tan_azangles.^2 + 1;
+x_axis = range_estimates./sqrt(x_axis)
+y_axis = x_axis.*tan_azangles
+
+
+% ax_x = linspace(0,13,length(x_axis));
+% ax_y = linspace(0,13,);
+ax_x = [0:0.2:13];
+ax_y = [0:0.2:13];
+figure;
+scatter(x_axis, y_axis)
+% plot(x_axis, y_axis,'-o')
+axis([0 10 0 10])
+
+
+% tgtdoppler = 0;
+% tgtLocation = global2localcoord(tgtpos,'rs',sensorpos);
+% tgtazang = tgtLocation(1);
+% tgtelang = tgtLocation(2);
+% tgtrng = tgtLocation(3);
+% tgtcell = val2ind(tgtrng,...
+% physconst('LightSpeed')/(2*waveform.SampleRate));
+% snapshot = shiftdim(rxpulses(tgtcell,:,:)); % Remove singleton dim
+% hadresp = phased.AngleDopplerResponse('SensorArray',antenna,...
+% 'OperatingFrequency',fc, ...
+% 'PropagationSpeed',physconst('LightSpeed'),...
+% 'PRF',prf, 'ElevationAngle',tgtelang);
+% plotResponse(hadresp,snapshot);
+% text(tgtazang,tgtdoppler,'+Target');
 
 
 % radar ambiguity
