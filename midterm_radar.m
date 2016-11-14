@@ -27,17 +27,21 @@ T_ref = 0;
 fc = 7000;                % center frequency in MHz
 
 % my own range and velocity
-ranges = [4.5 5.7];       % Km
+ranges = [4.5 4.9];       % Km
 Ntargets = length(ranges);
 amps = 10*[1 1];          % amplitude
 vels = [100 50];          % velocity in m/sec
 
-% use for user defined range and velcoity
-% y = radar(s,fs,T_0,g,T_out,T_ref,fc,ranges,amps,vels);
+user = input('Use user generated range (1) or r100.mat file? (any number)');
 
-% use for given .mat file
-temp = load('r100.mat');
-y = temp.y;
+if user == 1
+    % use for user defined range and velcoity
+    y = radar(s,fs,T_0,g,T_out,T_ref,fc,ranges,amps,vels);
+else
+    % use for given .mat file
+    temp = load('r100.mat');
+    y = temp.y;
+end
 
 %% -----------------------------------------------------------------------
 
@@ -67,6 +71,10 @@ title('Graph of the LFM Chirp')
 xlabel('Time in usec')
 ylabel('Amplitude ')
 grid on;
+
+figure;
+spectrogram(real(s), fs)
+title('Spectogram of LFM Chirp')
 
 ny = 1:length(y);
 figure;
@@ -120,12 +128,27 @@ plot(ex, abs(e))
 %% -----------------------------------------------------------------------
 
 % Calculating range for every pulse
-range_thresh = 300;              %Eyeballed threshold;
+[temp tt] = max(abs(e));
+figure;
+plot((tt + 10):length(e), abs(e([(tt + 10):end],1)))
+title('Radar Return Without Large Peak')
+xlabel('Time in usec')
+ylabel('Amplitude')
+% thresh_avg = mean(abs(e([1:(tt - 1) (tt + 1):end],1)))
+
+if user == 1
+    range_thresh = 600;            %Eyeballed threshold;
+else
+    range_thresh = 10;
+end
 
 R = [];
 flag = 1;
+%thresh_avg = [];
 for i = 1:(Np)
     [rpeaks,rlocs]=pkpicker( abs(e(:,i)), range_thresh, 30);        
+    
+    %thresh_avg(i) = sum(abs(e(rlocs([1:4 8:end]))));   
     
     % Calculating time delay for range
     delay = (rlocs-length(s))/(fs) + T_out(1); 
@@ -149,7 +172,7 @@ vd = e(r0_locs,:);         % use only rows where the peaks are located
 
 fd = [];
 V = [];
-NFFT = Np*64;
+NFFT = 1024;
 
 figure;
 for k=1:length(r0_locs)
@@ -188,16 +211,20 @@ nf_d = [];
 for j = 1:length(e)
     cont = transpose(e);
     curr = cont(:,j);
-    [contH(j,:), contW(j,:)] = dtft(curr,NFFT);
+%     [contH(j,:), contW(j,:)] = dtft(curr,NFFT);
+    [contH(j,:), contW(j,:)] = dtft(curr,1024);
     nf_d(j,:) = contW(j,:)/(2*pi*fc*pri);
 end
 
 % Calculating axis for contour plot
-Rp = linspace(2.4,7,201);
+% Rp = linspace(2.4,7,201);
+Rp = linspace(2.14,7,201);
+% [X Y] = meshgrid(Rp, nf_d(1,:));
 [X Y] = meshgrid(Rp, nf_d(1,:));
 
 figure;
 contour(X, Y, abs(20*log10(contH')))
+% contour(X, Y, abs(20*log10(contH(:,1)')))
 title('Contour plot of Range-Doppler Frequency')
 xlabel('Range in Km')
 ylabel('Doppler Frequency in MHz')
