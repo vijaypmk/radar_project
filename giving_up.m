@@ -5,8 +5,9 @@ pd = 0.9;            % Probability of detection
 pfa = 1e-6;          % Probability of false alarm
 max_range = 150;    % Maximum unambiguous range
 % range_res = 0.5;      % Required range resolution old - 0.05
-range_res = 0.025;       % 0.1 seems to work well
-tgt_rcs = 0.01;         % Required target radar cross section old - 0.1
+range_res = 0.0075;       % 0.1 seems to work well
+% tgt_rcs = 0.01;         % Required target radar cross section old - 0.1
+tgt_rcs = 0.001;
 
 prop_speed = physconst('LightSpeed');   % Propagation speed
 pulse_bw = prop_speed/(2*range_res);    % Pulse bandwidth
@@ -34,8 +35,8 @@ sensorvel = [0; 0; 0];
 % tgtrcs = [0.6 0.2 0.4 0.2 0.2];
 % tgtrcs = [0.06 0.04 0.05];
 
-graphin = input('Do you want graphical input? ');
-N = input('How many targets would you like to input? ');
+graphin = input('Do you want graphical input? (1/0) ');
+N = input('How many targets (max 7) would you like to input? ');
 
 % graphical input
 if graphin
@@ -85,7 +86,8 @@ end
 
 tgtpos = ranges';
 tgtvel = zeros(3,N);
-tgtrcs = 0.01*ones(N,1)';
+% tgtrcs = 0.02*ones(N,1)';   % old - 0.01
+tgtrcs = 0.002*ones(N,1)';
 % tgtrcs = [0.6 0.3];
 % tgtpos
 
@@ -244,7 +246,7 @@ npower = noisepow(noise_bw,receiver.NoiseFigure,...
 threshold = npower * db2pow(npwgnthresh(pfa,num_pulse_int,'noncoherent'))
 
 % threshold needs to be multipled by some constant! (500)
-threshold = threshold*100;
+threshold = threshold*10;
 
 figure;
 num_pulse_plot = 2;
@@ -288,8 +290,12 @@ vxpulses = rxpulses;
 % integrating all pulses
 rxpulses = pulsint(rxpulses,'noncoherent');
 
+figure;
 helperRadarPulsePlot(rxpulses,threshold,...
     fast_time_grid,slow_time_grid,1);
+title('Radar Return After Integration of Pulses')
+xlabel('Time(s)')
+ylabel('Amplitude(dbw)')
 
 % range detection
 [~,range_detect] = findpeaks(abs(rxpulses),'MinPeakHeight',sqrt(threshold));
@@ -314,10 +320,10 @@ for k=1:length(range_detect)
     [H, W] = dtft(vd(k,:),NFFT);  
     
     tempo = 1:length(H);
-    plot(tempo, abs(H))
+    plot(tempo, 10*log10(abs(H)))
     title('Doppler Frequecny Shift For Different Pulses')
-    xlabel('Frequency in MHz')
-    ylabel('Amplitude')
+    xlabel('Frequency(MHz)')
+    ylabel('Amplitude(dbw)')
     grid on;
     hold on;
     
@@ -369,7 +375,7 @@ x_axis = range_estimates./sqrt(x_axis)
 y_axis = x_axis.*tan_azangles
 
 figure;
-plot(x_axis, y_axis,'o')
+plot(x_axis, y_axis,'x')
 axis([0 10 -10 10])
 grid on
 title('Location of Targets With Respect To The Radar at (0, 0)')
