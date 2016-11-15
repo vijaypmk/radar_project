@@ -4,10 +4,12 @@ clear
 pd = 0.9;            % Probability of detection
 pfa = 1e-6;          % Probability of false alarm
 max_range = 150;    % Maximum unambiguous range
-% range_res = 0.5;      % Required range resolution old - 0.05
-range_res = 0.0075;       % 0.1 seems to work well
-% tgt_rcs = 0.01;         % Required target radar cross section old - 0.1
-tgt_rcs = 0.001;
+% range_res = 0.1;      % Required range resolution old - 0.05
+range_res = 0.01;
+% range_res = 0.0075;       % 0.1 seems to work well
+% range_res = 0.75;       % car resolution
+tgt_rcs = 0.01;         % Required target radar cross section old - 0.1
+% tgt_rcs = 0.001;
 
 prop_speed = physconst('LightSpeed');   % Propagation speed
 pulse_bw = prop_speed/(2*range_res);    % Pulse bandwidth
@@ -87,8 +89,9 @@ end
 tgtpos = ranges';
 tgtvel = zeros(3,N);
 % tgtrcs = 0.02*ones(N,1)';   % old - 0.01
-tgtrcs = 0.002*ones(N,1)';
-% tgtrcs = [0.6 0.3];
+% tgtrcs = 0.002*ones(N,1)';
+tgtrcs = 1.5*ones(N,1)';
+% tgtrcs = [1.7 3 3 3 3];
 % tgtpos
 
 
