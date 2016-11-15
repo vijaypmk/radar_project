@@ -4,8 +4,9 @@ clear
 pd = 0.9;            % Probability of detection
 pfa = 1e-6;          % Probability of false alarm
 max_range = 150;    % Maximum unambiguous range
-range_res = 0.5;      % Required range resolution old - 0.05
-tgt_rcs = 0.05;         % Required target radar cross section old - 0.1
+% range_res = 0.5;      % Required range resolution old - 0.05
+range_res = 0.025;       % 0.1 seems to work well
+tgt_rcs = 0.01;         % Required target radar cross section old - 0.1
 
 prop_speed = physconst('LightSpeed');   % Propagation speed
 pulse_bw = prop_speed/(2*range_res);    % Pulse bandwidth
@@ -24,13 +25,69 @@ sensorpos = [0; 0; 0];
 sensorvel = [0; 0; 0];
 
 % tgtpos = [[2024.66;0;0],[3518.63;0;0],[3845.04;0;0]];
-tgtpos = [[2.024;-1.5;0],[3.5;0;0],[4.5;-2;0],[7.5;2;0],[1;1;0]];
-tgtvel = [[30;0;0],[20;0;0],[-10;0;0],[0;0;0],[0;0;0]];
-% tgtpos = [[2;7;0],[1;1;0],[0.5;-1;0]];;
+% tgtpos = [[2.024;-1.5;0],[3.5;0;0],[4.5;-2;0],[7.5;2;0],[1;1;0]];
+% tgtvel = [[30;0;0],[20;0;0],[-10;0;0],[0;0;0],[0;0;0]];
+% tgtpos = [[2;7;0],[1;1;0],[0.5;-1;0]];
 % tgtvel = [[0;0;0],[0;0;0],[0;0;0]];
+% temp
+% tgtpos = [[2.1455;1.8925;0],[3.8029;4.3224;0],[6.1418;-1.7523;0]];
+% tgtrcs = [0.6 0.2 0.4 0.2 0.2];
+% tgtrcs = [0.06 0.04 0.05];
 
-tgtrcs = [0.6 0.2 0.4 0.2 0.2];
-% tgtrcs = [0.6 0.4 0.5];
+graphin = input('Do you want graphical input? ');
+N = input('How many targets would you like to input? ');
+
+% graphical input
+if graphin
+% Initialize
+  ranges = [];
+  vels = [];
+
+% Set up window used for input
+  figure;
+  clf
+  grid on
+  hold on
+%   mr = maxrange*Rmul;
+%   mv = maxvelocity*Vmul;
+%   plot([minrange maxrange maxrange minrange minrange ], ...
+%        maxvelocity*[-1 -1 1 1 -1],'--')
+  
+  axis([0 10 -10 10])
+  title(['Please enter up to ' num2str(N) ' targets at min 0.5 m apart using mouse'])
+%   str = sprintf('Please enter up to %N targets at min 0.5 m apart using mouse', N);
+%   title(str)
+  xlabel('x-axis (m)')
+  ylabel('y-axis (m)')
+
+% Loop for getting upto N target points 
+  xa = 0;
+  ya = 0;
+  for k=1:N
+    [xa,ya] = ginput(1);
+%     if Ra < 0 | Ra > mr | V < -mv | V > mv 
+%       break
+%     end
+    plot(xa,ya,'o')
+%     ranges = [ranges Ra];
+%     vels = [vels Va];
+    ranges(k,:) = [[xa ya 0]];
+  end
+
+% othersize get input from keyboard
+else
+  ranges = input('Enter range vector for up to twenty targets: ');
+%   vels = input('Enter correponsing velocity vector: ');
+%   if length(ranges) ~= length(vels)
+%     error('You need the same number of velocities and ranges')
+%   end
+end
+
+tgtpos = ranges';
+tgtvel = zeros(3,N);
+tgtrcs = 0.01*ones(N,1)';
+% tgtrcs = [0.6 0.3];
+% tgtpos
 
 
 % waveform things
@@ -186,8 +243,8 @@ npower = noisepow(noise_bw,receiver.NoiseFigure,...
     receiver.ReferenceTemperature);
 threshold = npower * db2pow(npwgnthresh(pfa,num_pulse_int,'noncoherent'))
 
-% threshold needs to be multipled by some constant!
-threshold = threshold*500;
+% threshold needs to be multipled by some constant! (500)
+threshold = threshold*100;
 
 figure;
 num_pulse_plot = 2;
@@ -238,7 +295,7 @@ helperRadarPulsePlot(rxpulses,threshold,...
 [~,range_detect] = findpeaks(abs(rxpulses),'MinPeakHeight',sqrt(threshold));
 
 true_range = tgtrng
-range_estimates = range_gates(range_detect);
+range_estimates = range_gates(range_detect)
 
 
 % delay = (range_detect-length(pulse))/(fs);
@@ -302,7 +359,7 @@ doa_est = sort(doa_est)
 % arranging input/output in order of arrival for xy calculations
 [tgtang(1,:), sortaindex] = sort(tgtang(1,:));
 tgtang(1,:)
-range_estimates = range_estimates(sortaindex)
+range_estimates = range_estimates(sortaindex);
 
 
 % xy graph
@@ -312,12 +369,12 @@ x_axis = range_estimates./sqrt(x_axis)
 y_axis = x_axis.*tan_azangles
 
 figure;
-scatter(x_axis, y_axis)
+plot(x_axis, y_axis,'o')
 axis([0 10 -10 10])
 grid on
 title('Location of Targets With Respect To The Radar at (0, 0)')
-xlabel('x axis')
-ylabel('y axis')
+xlabel('x axis(m)')
+ylabel('y axis(m)')
 
 % tgtdoppler = 0;
 % tgtLocation = global2localcoord(tgtpos,'rs',sensorpos);
