@@ -1,27 +1,23 @@
 clear
 
 fc=24e9;    % center frequency (10 GHz)
-% B=250e6;     % chirp bandwidth (50 MHz)
-T=500e-6;   % chirp period (500 us)
-% T=2e-6;
-% alpha=B/T;  % chirp rate (100 GHz/s)
+%T=500e-6;   % chirp period (500 us)
 
 r_res = 1;
 c = 3e8;
 B = c/(2*r_res);
-alpha=B/T;  % chirp rate (100 GHz/s)
+%alpha=B/T;  % chirp rate (100 GHz/s)
 
 r_max=50;         % target range 15 km
-% c=3e8;          % speed of light
 tau=2*r_max/c;      % target transit time 100 us
 tau = tau*5.5;    % why?
-fb=alpha*tau;   % beat frequency 10 MHz
-%fs=25e3;        % sampling frequency 25 MHz
+%fb=alpha*tau;   % beat frequency 10 MHz
+
 fs = 150e+6;
 Ts=1/fs;        % sampling period (40 ns)
-N=T/Ts;         % number of samples per sweep (12,500)
-Np=(T-tau)/Ts;  % number of processed samples per sweep (10,000)
-A=alpha/fs^2;   % dimensionless chirp parameter
+%N=T/Ts;         % number of samples per sweep (12,500)
+%Np=(T-tau)/Ts;  % number of processed samples per sweep (10,000)
+%A=alpha/fs^2;   % dimensionless chirp parameter
 
 lambda = c/fc;
 sweep_slope = B/tau;
@@ -29,6 +25,7 @@ sweep_slope = B/tau;
 
 % hwav = phased.FMCWWaveform('SweepTime',tau,'SweepBandwidth',B,...
 %     'SampleRate',fs);
+% creating baseband fmcw waveform
 hwav = phased.FMCWWaveform('SweepTime',tau,'SweepBandwidth',B,...
     'SampleRate',fs,'SweepDirection','Triangle','NumSweeps',2);
 s = step(hwav);
@@ -39,11 +36,11 @@ title('FMCW signal'); axis tight;
 subplot(212); spectrogram(s,32,16,32,fs,'yaxis');
 title('FMCW signal spectrogram');
 
-%object
-car_dist = [[5;0;0],[2;0;0]];  %%here 0.1
-car_speed = [[0;0;0],[0;0;0]];  %0
+% %object
+car_dist = [[8;0;0]];  %%here 0.1
+car_speed = [[99;0;0]];  %0
 % car_rcs = db2pow(min(10*log10(car_dist)+5,20));
-car_rcs = [2 2];
+car_rcs = [2];
 
 hcar = phased.RadarTarget('MeanRCS',car_rcs,'PropagationSpeed',c,...
     'OperatingFrequency',fc);
@@ -102,32 +99,23 @@ for m = 1:Nsweep
     
     [tgtrng,tgtang] = rangeangle(tgt_pos,radar_pos);
     
-    %[tgt_pos2,tgt_vel2] = step(hcar2platform,...
-    %    hwav.SweepTime);                      % Car moves during sweep
     x = step(hwav);                           % Generate the FMCW signal
-%     xt = step(htx,x);                         % Transmit the signal
-%     xt = step(hchannel,xt,radar_pos,tgt_pos,...
-%         radar_vel,tgt_vel);                   % Propagate the signal
     
     [txsig,txstatus] = step(htx, x);
     txsig = step(radiator, txsig, tgtang);
     txsig = step(hchannel,txsig,radar_pos,tgt_pos,radar_vel,tgt_vel);
     
-    %xt = step(hchannel,xt,radar_pos,tgt_pos2,...
-    %    radar_vel,tgt_vel2);                   % Propagate the signal
     xt = step(hcar,txsig);                       % Reflect the signal
-    %xt = step(hcar2,xt); %my stuff
     
     rxsig = step(collector,xt,tgtang);
     
     xt = step(hrx,rxsig);                        % Receive the signal
+    nxt(:,m) = xt;
     xd = dechirp(xt,x);                       % Dechirp the signal
 
     step(hspec,[xt xd]);                      % Visualize the spectrum
 
     xr(:,m) = xd;                             % Buffer the dechirped signal
-%     xr1(:,m) = xd(1:275);
-%     xr2(:,m) = xd(276:550);
 end
 
 hrdresp = phased.RangeDopplerResponse('PropagationSpeed',c,...
@@ -139,30 +127,30 @@ hrdresp = phased.RangeDopplerResponse('PropagationSpeed',c,...
 figure;
 clf;
 plotResponse(hrdresp,xr);   
-
-fm = 1/tau;
-% n=0:N-1;                    % time index
-% t=(-N/2+n)*Ts;              % time grid
-% phib=@(t) phiTX(t)-phiTX(t-tau);
-% R = c/(2*B*fm)
-
-% [Pyy,F] = periodogram(xt,[],1024,fs,'centered');
-
-% fb1 = rootmusic(pulsint(xr,'coherent'),1,fs);
-% fb2 = rootmusic(pulsint(xr2,'coherent'),1,fs);
-% or should I use the given range
-% rng_est = beat2range(fb_rng,sweep_slope,c)
-% rng_est1 = c*fb1/(2*sweep_slope)
-% rng_est2 = c*fb2/(2*sweep_slope)
-
-hwavtr = clone(hwav);
-release(hwavtr);
-% hwavtr.SweepDirection = 'Triangle';
-
-% xr = helperFMCWSimulate(Nsweep,hwavtr,hradarplatform,hcarplatform,...
-%     htx,hchannel,hcar,hrx);
-
-fbu_rng = rootmusic(pulsint(xr(1:275,1:2:end),'coherent'),1,fs);
-fbd_rng = rootmusic(pulsint(xr(276:end,2:2:end),'coherent'),1,fs);
+% 
+% fm = 1/tau;
+% % n=0:N-1;                    % time index
+% % t=(-N/2+n)*Ts;              % time grid
+% % phib=@(t) phiTX(t)-phiTX(t-tau);
+% % R = c/(2*B*fm)
+% 
+% % [Pyy,F] = periodogram(xt,[],1024,fs,'centered');
+% 
+% % fb1 = rootmusic(pulsint(xr,'coherent'),1,fs);
+% % fb2 = rootmusic(pulsint(xr2,'coherent'),1,fs);
+% % or should I use the given range
+% % rng_est = beat2range(fb_rng,sweep_slope,c)
+% % rng_est1 = c*fb1/(2*sweep_slope)
+% % rng_est2 = c*fb2/(2*sweep_slope)
+% 
+% hwavtr = clone(hwav);
+% release(hwavtr);
+% % hwavtr.SweepDirection = 'Triangle';
+% 
+% % xr = helperFMCWSimulate(Nsweep,hwavtr,hradarplatform,hcarplatform,...
+% %     htx,hchannel,hcar,hrx);
+% 
+fbu_rng = rootmusic(pulsint(xr(1:275,1:1:end),'coherent'),1,fs);
+fbd_rng = rootmusic(pulsint(xr(276:end,2:1:end),'coherent'),1,fs);
 
 rng_est = beat2range([fbu_rng fbd_rng],sweep_slope,c)

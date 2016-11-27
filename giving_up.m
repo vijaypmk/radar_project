@@ -230,7 +230,7 @@ for m = 1:num_pulse_int
 %     rxasig = collectPlaneWave(antenna, rxsig(:,1), tgtang, fc);
 %     rxisig = pulsint(rxsig,'noncoherent');
 
-    % sum individual signals with equal weights(1)
+    % sum individual signals with equal weights(1) (not phased)
     rxisig = sum(rxsig')';
 %     rxasig = collectPlaneWave(antenna, rxisig, tgtang, fc);
     rxpulses(:,m) = step(receiver,rxisig,~(txstatus>0));
