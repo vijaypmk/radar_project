@@ -7,34 +7,49 @@ fc=24e9;    % center frequency (10 GHz)
 
 r_res = 1;
 c = 3e8;
-B = c/(2*r_res);
-
+B1 = c/(2*r_res);
+% B2 = c/(2.5*r_res);
+B2=1.5*B1;
 r_max=50;         % target range 15 km
 overSamp = 4;
-fs = B*overSamp;
+fs = B1*overSamp;
 Ts=1/fs;        % sampling period (40 ns)
 
 lambda = c/fc;
 
 % creating baseband fmcw waveform
-hwav = phased.FMCWWaveform('SweepBandwidth',B,...
-    'SampleRate',fs,'SweepDirection','Triangle','NumSweeps',2);
-s = step(hwav);
-Ls = length(s);
-tau = Ts*Ls;
+% hwav = phased.FMCWWaveform('SweepBandwidth',B1,...
+%     'SampleRate',fs,'SweepDirection','Triangle','NumSweeps',2);
+% hwav1 = phased.FMCWWaveform('SweepBandwidth',B1,...
+%     'SampleRate',fs);
+% s1 = step(hwav1);
+% Ls1 = length(s1);
+% tau1 = Ts*Ls1;
 
-sweep_slope = B/(tau/2);
+nB2 = [B1 B2];
+hwav2 = phased.FMCWWaveform('SweepBandwidth',nB2,...
+    'SampleRate',fs,'SweepDirection','Triangle','NumSweeps',4);
+s2 = step(hwav2);
+Ls1 = length(s2(1:end/2,:));
+Ls2 = length(s2(end/2 + 1 : end,:));
+tau1 = Ts*Ls1;
+tau2 = Ts*Ls2;
+
+sweep_slope1 = B1/(tau1/2);
+sweep_slope2 = B2/(tau2/2);
+
+% s = [s1;s2];
+s = s2;
 
 windowlength = 32;
 noverlap = 16;
 nfft = 32;
 mult = 3;
-%spectrogram(s,mult*windowlength,mult*noverlap,mult*nfft,fs,'yaxis');
-
+% spectrogram(s2,mult*windowlength,mult*noverlap,mult*nfft,fs,'yaxis');
 
 %target
 tgt_dist = [2;0;0];
-tgt_vel = [0;0;0];
+tgt_vel = [-8;0;0];
 tgt_rcs = [2];
 htgt = phased.RadarTarget('MeanRCS',tgt_rcs,'PropagationSpeed',c,...
     'OperatingFrequency',fc);
@@ -87,13 +102,15 @@ Nsweep = 16;
 
 for m = 1:Nsweep
     [radar_pos,radar_vel] = step(...
-        hradarplatform,hwav.SweepTime);       % Radar moves during sweep
+        hradarplatform,hwav2.SweepTime);       % Radar moves during sweep
     [tgt_pos,tgt_vel] = step(htgtplatform,...
-        hwav.SweepTime);                      % Target moves during sweep
+        hwav2.SweepTime);                      % Target moves during sweep
     
     [tgtrng,tgtang] = rangeangle(tgt_pos,radar_pos);
     
-    x = step(hwav);                           % Generate the FMCW signal
+%     x = step(hwav1);                           % Generate the FMCW signal
+    x = step(hwav2);                           % Generate the FMCW signal
+%     x = [x1;x2];
     
     [txsig,txstatus] = step(htx, x);
     txsig = step(radiator, txsig, tgtang);
@@ -107,28 +124,31 @@ for m = 1:Nsweep
     nxt(:,m) = xt;
     xd = dechirp(xt,x);                       % Dechirp the signal
 
-    step(hspec,[xt xd]);                      % Visualize the spectrum
+%     step(hspec,[xt xd]);                      % Visualize the spectrum
 
     xr(:,m) = xd;                             % Buffer the dechirped signal
 end
 
 hrdresp = phased.RangeDopplerResponse('PropagationSpeed',c,...
     'DopplerOutput','Speed','OperatingFrequency',fc,'SampleRate',fs,...
-    'RangeMethod','FFT','SweepSlope',sweep_slope,...
+    'RangeMethod','FFT','SweepSlope',sweep_slope1,...
     'RangeFFTLengthSource','Property','RangeFFTLength',2048,...
     'DopplerFFTLengthSource','Property','DopplerFFTLength',256);
 
-figure;
-clf;
-plotResponse(hrdresp,xr);
+% figure;
+% clf;
+% plotResponse(hrdresp,xr);
 
 % beat frequency
-fbu = rootmusic(pulsint(xr(1:length(xr)/2,1:1:end),'coherent'),1,fs);
-fbd = rootmusic(pulsint(xr((length(xr)/2 + 1):end,1:1:end),'coherent'),1,fs);
+fbu1 = rootmusic(pulsint(xr(1:length(xr)/4,1:1:end),'coherent'),1,fs);
+fbd1 = rootmusic(pulsint(xr((length(xr)/4 + 1):length(xr)/2,1:1:end),'coherent'),1,fs);
+
+fbu2 = rootmusic(pulsint(xr(length(xr)/2 + 1:3*length(xr)/4,1:1:end),'coherent'),1,fs);
+fbd2 = rootmusic(pulsint(xr((3*length(xr)/4 + 1):end,1:1:end),'coherent'),1,fs);
 
 % range
 % rng_est = beat2range([fbu fbd],sweep_slope,c)
-rng_est= c*(fbu-fbd)*sweep_slope/2
+%rng_est= c*(fbu-fbd)*sweep_slope/2
 
 % doppler frequency
 % fd = (fbu + fbd);
@@ -137,11 +157,33 @@ rng_est= c*(fbu-fbd)*sweep_slope/2
 % vel_est = lambda*fd/2
 
 %velocity
+% peak_loc = val2ind(rng_est,c/(fs*2));
+% fd = rootmusic(xr(peak_loc,:),1,1/tau);
+% % v_est = dop2speed(fd,lambda)
+% v_est = lambda*fd
+
+% num_sweeps = 2;
+% y = [fbu1; fbd1; fbu2; fbd2];
+% % for i = 1:num_sweeps
+%     A(1, :) = [2*sweep_slope1/c -2/lambda];
+%     A(2, :) = [2*sweep_slope2/c -2/lambda];
+%     A(3, :) = [2*sweep_slope1/c -2/lambda];
+%     A(4, :) = [2*sweep_slope2/c -2/lambda];
+% % end
+% x = A\y;
+
+
+% r_hat1 = c/2*(fbu1-fbu2)*(sweep_slope1-sweep_slope2)^(-1);
+r_hat1 = c/4*(fbu1-fbd2)*(sweep_slope1)^(-1);
+v_hat1 = lambda*sweep_slope1/c*r_hat1 - lambda/2*fbu1;
+    
+% range
+rng_est = beat2range([fbu1 fbd1],sweep_slope1,c);
+
+%velocity
 peak_loc = val2ind(rng_est,c/(fs*2));
-fd = rootmusic(xr(peak_loc,:),1,1/tau);
-% v_est = dop2speed(fd,lambda)
-v_est = lambda*fd
+fd = rootmusic(xr(peak_loc,:),1,1/(tau1+tau2));
+v_hat2 = lambda*fd*2;
 
-
-
+sol = [r_hat1 rng_est;v_hat1 v_hat2]
 
