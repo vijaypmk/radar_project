@@ -9,7 +9,7 @@ r_res = 1;
 c = 3e8;
 B1 = c/(2*r_res);
 % B2 = c/(2.5*r_res);
-B2=1.5*B1;
+B2=0.75*B1;
 r_max=50;         % target range 15 km
 overSamp = 4;
 fs = B1*overSamp;
@@ -49,7 +49,7 @@ mult = 3;
 
 %target
 tgt_dist = [2;0;0];
-tgt_vel = [-8;0;0];
+tgt_vel = [7;0;0];
 tgt_rcs = [2];
 htgt = phased.RadarTarget('MeanRCS',tgt_rcs,'PropagationSpeed',c,...
     'OperatingFrequency',fc);
@@ -119,13 +119,14 @@ for m = 1:Nsweep
     xt = step(htgt,txsig);                       % Reflect the signal
     
     rxsig = step(collector,xt,tgtang);
+%     rxsig = xt;
     
     xt = step(hrx,rxsig);                        % Receive the signal
-    nxt(:,m) = xt;
+%     nxt(:,m) = xt;
     xd = dechirp(xt,x);                       % Dechirp the signal
 
 %     step(hspec,[xt xd]);                      % Visualize the spectrum
-
+%     xd = pulsint(xd);
     xr(:,m) = xd;                             % Buffer the dechirped signal
 end
 
@@ -140,11 +141,11 @@ hrdresp = phased.RangeDopplerResponse('PropagationSpeed',c,...
 % plotResponse(hrdresp,xr);
 
 % beat frequency
-fbu1 = rootmusic(pulsint(xr(1:length(xr)/4,1:1:end),'coherent'),1,fs);
-fbd1 = rootmusic(pulsint(xr((length(xr)/4 + 1):length(xr)/2,1:1:end),'coherent'),1,fs);
+fbu1 = rootmusic(pulsint(xr(1:length(xr)/4,1:2:end),'coherent'),1,fs);
+fbd1 = rootmusic(pulsint(xr((length(xr)/4 + 1):length(xr)/2,1:2:end),'coherent'),1,fs);
 
-fbu2 = rootmusic(pulsint(xr(length(xr)/2 + 1:3*length(xr)/4,1:1:end),'coherent'),1,fs);
-fbd2 = rootmusic(pulsint(xr((3*length(xr)/4 + 1):end,1:1:end),'coherent'),1,fs);
+fbu2 = rootmusic(pulsint(xr(length(xr)/2 + 1:3*length(xr)/4,1:2:end),'coherent'),1,fs);
+fbd2 = rootmusic(pulsint(xr((3*length(xr)/4 + 1):end,1:2:end),'coherent'),1,fs);
 
 % range
 % rng_est = beat2range([fbu fbd],sweep_slope,c)
@@ -174,8 +175,11 @@ fbd2 = rootmusic(pulsint(xr((3*length(xr)/4 + 1):end,1:1:end),'coherent'),1,fs);
 
 
 % r_hat1 = c/2*(fbu1-fbu2)*(sweep_slope1-sweep_slope2)^(-1);
-r_hat1 = c/4*(fbu1-fbd2)*(sweep_slope1)^(-1);
-v_hat1 = lambda*sweep_slope1/c*r_hat1 - lambda/2*fbu1;
+% r_hat1 = c/4*(fbu1-fbd2)*(sweep_slope1)^(-1);
+r_hat1 = c*(fbu1-fbd1)/(sweep_slope1*4);
+% v_hat1 = lambda*(sweep_slope1*4)/(c*r_hat1) - (lambda/2)*fbu1;
+% v_hat1 = lambda*(sweep_slope1*4*r_hat1)/(c) - (lambda/2)*fbu1;
+v_hat1 = c*(fbu1+fbd1)/(4*(fc+B1));
     
 % range
 rng_est = beat2range([fbu1 fbd1],sweep_slope1,c);
